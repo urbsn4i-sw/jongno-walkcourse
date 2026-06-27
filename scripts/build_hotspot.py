@@ -83,13 +83,22 @@ CRS_METRIC = "EPSG:5179"
 # '집'·'안녕' 같은 1~2글자 일반어 상호가 ③ 검색으로도 남기는 극단값 방어.
 WINSOR_PCT = 0.99
 
+# 일반어 가드: 아래 이름인 POI 는 언급량 신호(mention_norm)를 중앙값으로 대체(페널티).
+# 윈저라이즈로도 캡 상단에 몰리는 '일반명사 상호'를 직접 무력화.
+# ※ 이름 '길이'로 자르지 않는다 — 정당한 짧은 상호가 억울하게 깎이지 않도록 명시 리스트만.
+STOPWORD_NAMES = {
+    "안녕", "집", "공간", "천국", "낙원", "가을", "여름", "나무", "하루", "오후",
+    "식사", "바로", "조금", "섬", "한", "파크", "옥상", "식물", "포차",
+}
+
 # DBSCAN 파라미터 (미터 기준)
 EPS_METERS = 100      # 이웃으로 볼 거리(m)
 MIN_SAMPLES = 5       # 코어 포인트가 되기 위한 최소 이웃 수
 
 # hotspot_score = 두 신호의 가중합 (가중치 합 = 1 → 결과가 자연히 0~1)
-W_MENTION = 0.5
-W_DENSITY = 0.5
+# 밀집을 좀 더 신뢰하도록 density 가중을 높임.
+W_MENTION = 0.4
+W_DENSITY = 0.6
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -133,13 +142,16 @@ def load_and_merge() -> pd.DataFrame:
 
 
 def add_mention_signal(df: pd.DataFrame) -> pd.DataFrame:
-    """언급량 → 윈저라이즈(상위 WINSOR_PCT 캡) → log1p → z-score → 0~1 정규화."""
+    """언급량 → 윈저라이즈(상위 WINSOR_PCT 캡) → log1p → z-score → 0~1 정규화.
+    그 뒤 일반어 가드: STOPWORD_NAMES 이름은 mention_norm 을 중앙값으로 대체.
+    """
     df = df.copy()
     raw = df["mention_count"]
 
     cap = raw.quantile(WINSOR_PCT)
-    capped = raw.clip(upper=cap)
-    df["mention_capped"] = capped.round().astype(int)
+    # numpy.minimum 으로 캡 (pandas clip 의 downcasting FutureWarning 회피) + 명시 int 캐스팅
+    capped = pd.Series(np.rint(np.minimum(raw.to_numpy(), cap)).astype(int), index=df.index)
+    df["mention_capped"] = capped
 
     log_mention = np.log1p(capped)
     df["mention_z"] = zscore(log_mention)
@@ -151,6 +163,13 @@ def add_mention_signal(df: pd.DataFrame) -> pd.DataFrame:
           f"→ {n_capped:,}건({n_capped / len(raw) * 100:.1f}%) 눌림")
     print(f"    캡 전 : max={raw.max():,.0f}  mean={raw.mean():,.1f}  median={raw.median():,.0f}")
     print(f"    캡 후 : max={capped.max():,.0f}  mean={capped.mean():,.1f}  median={capped.median():,.0f}")
+
+    # 일반어 가드: 불용어 이름 → mention_norm 을 중앙값으로 (페널티)
+    med = float(df["mention_norm"].median())
+    mask = df["name"].isin(STOPWORD_NAMES)
+    df.loc[mask, "mention_norm"] = med
+    print(f"  일반어 가드: STOPWORD {len(STOPWORD_NAMES)}개 매칭 {int(mask.sum()):,}건 "
+          f"→ mention_norm=중앙값({med:.3f}) 대체")
     return df
 
 
