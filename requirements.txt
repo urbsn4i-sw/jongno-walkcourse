@@ -1,0 +1,32 @@
+# 종로 도보 동선 추천 — Python 의존성
+# 버전은 v1.0 구현 시 핀(pin)할 예정. 지금은 용도별 후보만 명시.
+#
+# 설치: pip install -r requirements.txt
+# 무거운 학습(PyTorch GPU)은 Colab에서 수행하므로 로컬 필수는 아님.
+
+# --- 데이터 수집 / 보행망 / OD행렬 (레이어 A·B) ---
+osmnx                 # OSM 보행망 다운로드, 등시선(ego_graph)
+networkx              # 최단경로 / travel_time
+geopandas             # 구 경계·버퍼 공간연산
+shapely               # 지오메트리
+requests              # 카카오/네이버/TourAPI/공공데이터 호출 (선택)
+
+# --- 데이터 처리 / 저장 ---
+pandas
+numpy
+pyarrow               # parquet 입출력
+
+# --- 핫스팟 점수 / 표현학습 (전처리·ML) ---
+scikit-learn          # DBSCAN, PCA, 베이스라인 랭커(KNN/로지스틱/트리/SVM)
+umap-learn            # 차원축소(UMAP) — 선택
+
+# --- 딥러닝 랭커 (v1.4, 주로 Colab) ---
+# torch               # next-POI 랭커(RNN/Transformer). 로컬에선 선택.
+
+# --- 환경변수 ---
+python-dotenv         # .env 로 API 키 관리
+
+# --- 프론트엔드: Streamlit 경로를 택할 경우 ---
+# streamlit
+# streamlit-folium    # 또는 folium 으로 Leaflet 지도
+# folium
