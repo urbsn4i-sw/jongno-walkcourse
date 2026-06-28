@@ -1,0 +1,61 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# --- 환경/비밀키 (절대 커밋 금지) ---
+.env
+.env.*
+!.env.example
+*.key
+secrets.*
+
+# --- Claude Code 로컬 설정 ---
+.claude/settings.local.json
+
+# --- 대용량 데이터 (받는 스크립트로 재생성) ---
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+*.parquet
+*.graphml
+*.osm
+*.pbf
+
+# --- 모델 산출물 ---
+models/checkpoints/
+*.pt
+*.pth
+*.pkl
+*.joblib
+
+# --- 노트북 출력 캐시 ---
+notebooks/outputs/
+
+# --- OSMnx/Overpass 다운로드 캐시 ---
+cache/
+
+# --- 프론트엔드 (Node 사용 시) ---
+node_modules/
+dist/
+build/
+
+# --- 핸드오프 버전 사본 (본체 PROJECT_HANDOFF.md 만 추적) ---
+PROJECT_HANDOFF_v*.md
+
+# --- 대용량 원본 데이터 (Foursquare 102MB) — 출처만 문서화 ---
+archive/
+
+# --- OS / 에디터 ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 루트에 잘못 생기는 노트북 사본 (정식: notebooks/jongno_walkcourse.ipynb)
+/jongno_walkcourse.ipynb
