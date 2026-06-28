@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Polyline, Tooltip, GeoJSON } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Polyline, Tooltip, GeoJSON, useMapEvents } from 'react-leaflet'
+import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -25,7 +28,34 @@ const CAT2_COLOR = {
   '한식': '#e53e3e', '술집': '#dd6b20', '식당(기타)': '#d69e2e', '카페': '#805ad5',
   '명소·유적': '#38a169', '거리·자연': '#319795', '기타관광': '#718096',
 }
-const DISPLAY_N = 30
+// 표시 정책: 남은 예산 내 도달 가능한 모든 후보를 표시(컷·거리창 없음).
+// 예산↑ = 도달후보 superset → 단조성 자연 성립. 빽빽함은 클러스터링으로 해소.
+const SNAP_MAX_KM = 2  // 최근접 노드가 이보다 멀면 종로 권역 밖으로 간주
+
+// 하버사인 직선거리(km)
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371, toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+// 임의 좌표 → 가장 가까운 POI 노드 인덱스. 2km 초과면 null(권역 밖)
+function nearestNode(lat, lon, pois) {
+  let best = -1, bestD = Infinity
+  for (let i = 0; i < pois.length; i++) {
+    const d = haversineKm(lat, lon, pois[i].lat, pois[i].lon)
+    if (d < bestD) { bestD = d; best = i }
+  }
+  return bestD > SNAP_MAX_KM ? null : best
+}
+
+// 지도 클릭 → onPick(lat, lng)
+function ClickHandler({ onPick }) {
+  useMapEvents({ click(e) { onPick(e.latlng.lat, e.latlng.lng) } })
+  return null
+}
 
 function reachable(currentIdx, budget, pois, times, visited, catFilter) {
   const row = times[currentIdx]
@@ -40,7 +70,9 @@ function reachable(currentIdx, budget, pois, times, visited, catFilter) {
     const cost = t + p.stay
     if (cost <= budget) out.push({ idx: j, ...p, od: t, remaining: Math.round((budget - cost) * 10) / 10 })
   }
-  out.sort((a, b) => b.score - a.score)
+  // 도보시간 오름차순(가까운 곳 우선) → 동률은 hotspot 내림차순.
+  // 가까운 후보가 상위에 와서, 예산을 키워도 30분 후보가 상위에 유지됨(단조성).
+  out.sort((a, b) => a.od - b.od || b.score - a.score)
   return out
 }
 
@@ -73,6 +105,19 @@ export default function App() {
     setPath([{ idx: startIdx, name: pois[startIdx].name, budgetBefore: min }])
   }
 
+  // 지도 클릭 → 최근접 노드로 출발점 변경 (D21, 직선거리 스냅)
+  function handlePickStart(lat, lng) {
+    if (!pois) return
+    if (path.length >= 2) return  // 동선 진행 중이면 실수 방지 위해 무시
+    const idx = nearestNode(lat, lng, pois)
+    if (idx === null) { alert('종로 권역 밖입니다. 종로 근처를 클릭하세요'); return }
+    setStartIdx(idx)
+    // 출발점 변경 → 동선 초기화 (예산 선택 상태면 새 출발점으로 재설정)
+    if (initialBudget !== null) {
+      setPath([{ idx, name: pois[idx].name, budgetBefore: initialBudget }])
+    }
+  }
+
   const current = path.length ? path[path.length - 1] : null
   const remaining = current ? current.budgetBefore : null
 
@@ -93,7 +138,13 @@ export default function App() {
 
   return (
     <div style={{ position: 'relative', height: '100vh', width: '100vw' }}>
-      <div style={barStyle}>
+      <div style={barStyle}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}>
+        <span style={{ fontSize: 13, color: '#444', whiteSpace: 'nowrap' }}>
+          출발: <b>{start ? start.name : '—'}</b>
+        </span>
+        <span style={{ width: 1, height: 24, background: '#ddd' }} />
         <div style={{ display: 'flex', gap: 6 }}>
           {TIME_OPTIONS.map((o) => (
             <button key={o.minutes} disabled={!pois} onClick={() => selectBudget(o.minutes)}
@@ -124,17 +175,27 @@ export default function App() {
           <div style={{ marginTop: 6, color: '#777' }}>
             {candidates.length > 0 ? `다음 후보 ${candidates.length}곳` : '더 갈 곳 없음 — 동선 완성'}
           </div>
+          <div style={{ marginTop: 6, color: '#999', fontSize: 12 }}>
+            {path.length >= 2
+              ? '※ 동선 진행 중 — 출발점 변경 잠금(뒤로 가기로 해제)'
+              : '※ 지도를 클릭해 출발점을 바꿀 수 있어요'}
+          </div>
         </div>
       )}
 
       {!pois && !err && <div style={overlayMsg}>데이터 불러오는 중…</div>}
       {err && <div style={overlayMsg}>로드 실패: {err}</div>}
+      {pois && initialBudget === null && (
+        <div style={overlayMsg}>지도를 클릭해 출발점을 정하고, 위에서 시간을 선택하세요</div>
+      )}
 
       <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.vworld.kr/">공간정보 오픈플랫폼(브이월드)</a>'
           url={`https://api.vworld.kr/req/wmts/1.0.0/${import.meta.env.VITE_VWORLD_KEY}/white/{z}/{y}/{x}.png`}
           maxZoom={19} />
+
+        <ClickHandler onPick={handlePickStart} />
 
         {boundary && (
           <GeoJSON data={boundary} style={{ color: '#2b6cb0', weight: 2, fill: true, fillColor: '#2b6cb0', fillOpacity: 0.04, dashArray: '5,5' }} />
@@ -147,18 +208,29 @@ export default function App() {
         ))}
         {pathLatLng.length > 1 && <Polyline positions={pathLatLng} pathOptions={{ color: '#2b6cb0', weight: 4 }} />}
 
-        {candidates.slice(0, DISPLAY_N).map((c) => (
-          <CircleMarker key={c.idx} center={[c.lat, c.lon]} radius={8}
-            eventHandlers={{ click: () => pickCandidate(c) }}
-            pathOptions={{ color: CAT2_COLOR[c.cat2] || '#888', fillColor: CAT2_COLOR[c.cat2] || '#888', fillOpacity: 0.85, weight: 1 }}>
-            <Tooltip>{c.name} · {c.cat2} · 도보 {c.od}분</Tooltip>
-            <Popup>
-              <b>{c.name}</b><br />{c.cat2} · {c.gu}<br />
-              도보 {c.od}분 · 체류 {c.stay}분 · 방문 후 잔여 {c.remaining}분<br />
-              <i>클릭하면 동선에 추가</i>
-            </Popup>
-          </CircleMarker>
-        ))}
+        {/* 후보 = 남은 예산 내 도달 가능한 전부. 빽빽함은 클러스터로 묶음(확대 시 펼쳐짐).
+            key 에 출발점·잔여예산 포함 → 예산/출발점 변경 시 클러스터 깨끗이 remount. */}
+        <MarkerClusterGroup
+          key={`cl-${current?.idx}-${remaining}`}
+          chunkedLoading
+          zoomToBoundsOnClick={false}
+          spiderfyOnMaxZoom={true}
+          spiderfyOnEveryZoom={true}
+          showCoverageOnHover={false}
+        >
+          {candidates.map((c) => (
+            <CircleMarker key={c.idx} center={[c.lat, c.lon]} radius={8}
+              eventHandlers={{ click: () => pickCandidate(c) }}
+              pathOptions={{ color: CAT2_COLOR[c.cat2] || '#888', fillColor: CAT2_COLOR[c.cat2] || '#888', fillOpacity: 0.85, weight: 1 }}>
+              <Tooltip>{c.name} · {c.cat2} · 도보 {c.od}분</Tooltip>
+              <Popup>
+                <b>{c.name}</b><br />{c.cat2} · {c.gu}<br />
+                도보 {c.od}분 · 체류 {c.stay}분 · 방문 후 잔여 {c.remaining}분<br />
+                <i>클릭하면 동선에 추가</i>
+              </Popup>
+            </CircleMarker>
+          ))}
+        </MarkerClusterGroup>
       </MapContainer>
     </div>
   )
