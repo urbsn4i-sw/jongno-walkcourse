@@ -85,6 +85,7 @@ export default function App() {
   const [catFilter, setCatFilter] = useState(null)
   const [path, setPath] = useState([])
   const [err, setErr] = useState(null)
+  const [locating, setLocating] = useState(false)
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL
@@ -116,6 +117,25 @@ export default function App() {
     if (initialBudget !== null) {
       setPath([{ idx, name: pois[idx].name, budgetBefore: initialBudget }])
     }
+  }
+
+  // GPS "내 위치에서 시작" — 좌표만 획득 후 동일한 handlePickStart(스냅) 경로 사용
+  function handleUseMyLocation() {
+    if (!navigator.geolocation) {
+      alert('위치를 가져올 수 없어요. 지도를 클릭해 출발점을 정해주세요'); return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        handlePickStart(pos.coords.latitude, pos.coords.longitude)  // 스냅·권역밖·동선잠금 가드 동일 적용
+      },
+      () => {
+        setLocating(false)
+        alert('위치를 가져올 수 없어요. 지도를 클릭해 출발점을 정해주세요')
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
   }
 
   const current = path.length ? path[path.length - 1] : null
@@ -151,6 +171,10 @@ export default function App() {
               style={initialBudget === o.minutes ? selBtn : btn}>{o.label}</button>
           ))}
         </div>
+        <button disabled={!pois || locating} onClick={handleUseMyLocation}
+          style={{ ...btn, opacity: (!pois || locating) ? 0.6 : 1 }}>
+          {locating ? '위치 확인 중…' : '📍 내 위치에서 시작'}
+        </button>
         {initialBudget !== null && (
           <>
             <span style={{ width: 1, height: 24, background: '#ddd' }} />
