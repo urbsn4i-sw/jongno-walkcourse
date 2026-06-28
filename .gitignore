@@ -56,3 +56,6 @@ archive/
 Thumbs.db
 .idea/
 .vscode/
+
+# 루트에 잘못 생기는 노트북 사본 (정식: notebooks/jongno_walkcourse.ipynb)
+/jongno_walkcourse.ipynb
