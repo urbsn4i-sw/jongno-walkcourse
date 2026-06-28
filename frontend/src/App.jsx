@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Polyline, Tooltip, GeoJSON, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Polyline, Tooltip, GeoJSON, useMapEvents, AttributionControl } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -213,9 +213,11 @@ export default function App() {
         <div style={overlayMsg}>지도를 클릭해 출발점을 정하고, 위에서 시간을 선택하세요</div>
       )}
 
-      <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={center} zoom={15} scrollWheelZoom attributionControl={false} style={{ height: '100%', width: '100%' }}>
+        {/* 기본 "Leaflet" prefix 제거 + VWorld 출처 표시(약관상 필수) */}
+        <AttributionControl prefix={false} />
         <TileLayer
-          attribution='&copy; <a href="https://www.vworld.kr/">공간정보 오픈플랫폼(브이월드)</a>'
+          attribution='🇰🇷 urbsn4i-sw | © 공간정보 오픈플랫폼(브이월드)'
           url={`https://api.vworld.kr/req/wmts/1.0.0/${import.meta.env.VITE_VWORLD_KEY}/white/{z}/{y}/{x}.png`}
           maxZoom={19} />
 
