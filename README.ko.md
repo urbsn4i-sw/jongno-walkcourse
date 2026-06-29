@@ -5,6 +5,7 @@
 **[🇬🇧 English README](./README.md)**
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://urbsn4i-sw.github.io/jongno-walkcourse/)
+[![HF Space](https://img.shields.io/badge/🤗_HF_Space-NN_Demo-yellow)](https://huggingface.co/spaces/urban4isw/jongno-nn-ranker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
@@ -61,6 +62,8 @@
 - 이후 서점·문화시설·쇼핑 랜드마크를 증분 방식으로 추가(교보문고·박물관·시장 등, 전체 재계산 없이).
 
 ## NN/ML 실험
+
+**라이브 NN 데모:** [Hugging Face Spaces](https://huggingface.co/spaces/urban4isw/jongno-nn-ranker)에서 L2 랭커를 직접 써볼 수 있습니다.
 
 추천 문제를 next-POI 랭킹으로 정의하고, 공개 Foursquare NYC 체크인 데이터(체크인 22.7만, 사용자 1,083명)로 검증했습니다. leave-one-out 방식, 동일 403개 test 집합에서 Recall@k·NDCG@k로 평가하고, 구조를 종로에 데모로 적용했습니다.
 

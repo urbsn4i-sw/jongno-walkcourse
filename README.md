@@ -5,6 +5,7 @@
 **[🇰🇷 한국어 README](./README.ko.md)**
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://urbsn4i-sw.github.io/jongno-walkcourse/)
+[![HF Space](https://img.shields.io/badge/🤗_HF_Space-NN_Demo-yellow)](https://huggingface.co/spaces/urban4isw/jongno-nn-ranker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
@@ -61,6 +62,8 @@ The hard constraint (time budget) is enforced exactly by (B); within that, (C)'s
 - Data expansion later added bookstores, cultural facilities, and shopping landmarks incrementally (Kyobo Book Centre, museums, markets) without recomputing the whole matrix.
 
 ## NN/ML experiments
+
+**Live NN demo:** try the L2 ranker at [Hugging Face Spaces](https://huggingface.co/spaces/urban4isw/jongno-nn-ranker)
 
 The recommendation task is framed as next-POI ranking and validated on the public Foursquare NYC check-in dataset (227k check-ins, 1,083 users), evaluated leave-one-out on a fixed 403-sample test set with Recall@k and NDCG@k. The structure is then applied to Jongno as a demonstration.
 
