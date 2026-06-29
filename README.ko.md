@@ -14,12 +14,14 @@
 
 **🔗 라이브 데모: https://urbsn4i-sw.github.io/jongno-walkcourse/**
 
-<!-- 스크린샷: 라이브 데모에서 캡처해 docs/ 에 넣으면 여기 렌더링됩니다 -->
-<!--
-![동선이 그려진 지도](docs/demo-route.png)
-![위성 보기](docs/demo-satellite.png)
-![카테고리 필터](docs/demo-filters.png)
--->
+![일반지도 위 도보 동선](docs/demo-route.png)
+*일반지도 위 도보 동선(A→B→C→D)*
+
+![한글 라벨 위성 보기](docs/demo-satellite.png)
+*한글 라벨 위성 보기*
+
+![마커 클러스터링과 카테고리 필터](docs/demo-filters.png)
+*마커 클러스터링 + 10종 카테고리 필터*
 
 ---
 

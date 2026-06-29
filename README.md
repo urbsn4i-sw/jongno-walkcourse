@@ -14,12 +14,14 @@
 
 **🔗 Live demo: https://urbsn4i-sw.github.io/jongno-walkcourse/**
 
-<!-- Screenshots: capture from the live demo and drop into docs/, then they'll render here -->
-<!--
-![Map with a walking route](docs/demo-route.png)
-![Satellite view](docs/demo-satellite.png)
-![Category filters](docs/demo-filters.png)
--->
+![Walking route on the standard map](docs/demo-route.png)
+*Walking route (A→B→C→D) on the standard map*
+
+![Satellite view with Korean labels](docs/demo-satellite.png)
+*Satellite view with Korean labels*
+
+![Reachable candidates with clustering and category filters](docs/demo-filters.png)
+*Reachable candidates with marker clustering + 10 category filters*
 
 ---
 
