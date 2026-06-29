@@ -1,164 +1,106 @@
-# 종로 도보 동선 추천 — Jongno Walk-Course Recommender
+# Jongno Walk-Course Recommender
 
-> 종로구 지도 위에서 출발점으로부터 **도보 예산(30분/1h/2h/3h)** 안에 닿는 스팟(맛집·관광지·핫스팟)을
-> 우선순위로 추천하고, 하나를 고르면 다음 후보가 다시 떠서 **A→B→C 동선**이 완성되는 **무료 웹앱**.
->
-> 실습 과제 / 학습 중심 프로젝트. 단일 진실 소스는 [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md).
+> Pick a starting point and a walking-time budget, and get a prioritized, sequential A → B → C walking route through Seoul's Jongno district — restaurants, cafés, attractions, bookstores, museums, and shops, all reachable on foot within your budget.
 
----
+**[🇰🇷 한국어 README](./README.ko.md)**
 
-## 1. 무엇을 하는가
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://urbsn4i-sw.github.io/jongno-walkcourse/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-NN-EE4C2C?logo=pytorch&logoColor=white)
 
-- 출발점 A를 찍는다 → 남은 도보 예산 안에 닿는 후보 B-1…B-n이 **우선순위 마커**로 뜬다.
-- B 하나를 고르면 예산이 차감되고, 그 지점에서 다시 C-1…C-n이 뜬다.
-- **예산 소진까지 반복** → A→B→C… 동선이 지도 위 **폴리라인**으로 그려진다.
-- 예산이 크면 종로구를 벗어나 인접 구(중·서대문·성북·은평)로 넘어갈 수 있고, UI가 이를 표시한다.
+**🔗 Live demo: https://urbsn4i-sw.github.io/jongno-walkcourse/**
 
-학술 프레이밍(선택): 보행 접근성(walkability) · 시간지리학의 time-space prism.
-
----
-
-## 2. 핵심 설계 원칙
-
-| 레이어 | 역할 | 방식 |
-|---|---|---|
-| (A) 데이터 | 종로+버퍼 POI 테이블 + 도보 OD행렬 | 오프라인 사전계산 |
-| (B) 도달성 엔진 | `OD[현재][후보] + 체류[후보] ≤ 남은예산` 만 통과 | **결정론적 (NN 아님)** |
-| (C) 점수·추천 | 통과 후보 정렬 = 학습랭커 ⊕ 사용자신호 ⊕ 인기도조건화 | **NN(직접 구축·학습)이 순위만** |
-| (D) 화면 | 지도 + 컨트롤 + 우선순위 마커 + 동선 폴리라인 | **React + Leaflet** / OSM |
-
-> **원칙:** 하드 제약(시간 예산)은 (B)가 정확히 거르고, 그 안에서 (C)가 순위만 매긴다.
+<!-- Screenshots: capture from the live demo and drop into docs/, then they'll render here -->
+<!--
+![Map with a walking route](docs/demo-route.png)
+![Satellite view](docs/demo-satellite.png)
+![Category filters](docs/demo-filters.png)
+-->
 
 ---
 
-## 3. 절대 제약 (요약)
+## What it does
 
-1. **전부 무료** — 유료 API·빌링 금지. 무료 키 발급은 허용.
-2. **배움 중심** — 재현 가능성·오픈소스 우선.
-3. **지도에 경로·추천이 반드시 보여야 함.**
-4. **경계 침범 허용·안내** — 종로 → 중·서대문·성북·은평 버퍼 포함.
-5. 식당 폐점 검증은 사용자 몫(앱 범위 밖).
+On a map of Jongno-gu, you choose a starting point and a walking-time budget (30 min / 1 h / 2 h / 3 h). The app shows every spot reachable on foot within that budget, ranked by priority. You pick one; the remaining budget is decremented and a fresh set of reachable candidates appears, chaining into a complete A → B → C route until the budget runs out — with variable depth.
 
-전체 결정 로그·기술 스택은 [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md) 3·6번 섹션 참조.
+- **Reachability is deterministic**: a candidate passes only if `travel_time + stay_time ≤ remaining budget`.
+- **Ranking is where ML lives**: candidates that pass the budget filter are ordered by a learned ranker (see [NN/ML](#nnml-experiments)).
+- Travel time is computed from a real pedestrian network (distance ÷ 4.5 km/h).
 
----
+## Key features
 
-## 4. 무료 기술 스택
+- **Sequential route building** — A → B → C chaining with variable depth, plus undo (budget is restored).
+- **Flexible start** — click anywhere on the map or use GPS; the point snaps to the nearest reachable node.
+- **10 category filters** — Korean food, bars, other restaurants, cafés, landmarks, streets/nature, other tourism, **bookstores, cultural facilities, shopping**.
+- **Marker clustering** with spiderfy, so dense areas (e.g. a single building with many restaurants) stay legible.
+- **Standard ↔ satellite** map toggle.
+- **Jongno boundary** overlay; routes may cross into adjacent districts when the budget is large.
 
-- **프론트엔드:** **React + Leaflet** (확정) — OpenStreetMap 타일 (무키 기본값)
-- **보행망·OD행렬·등시선:** OSMnx + NetworkX (Python)
-- **POI:** OSM(Overpass/OSMnx) 기본 + (선택) 카카오 로컬·네이버 검색·TourAPI
-- **언급량(인기):** 네이버 블로그/검색 API
-- **생활인구·인구통계:** 서울 열린데이터광장 / 한국관광 데이터랩
-- **NN 학습 신호:** Foursquare 공개 체크인 데이터셋 (벤치마크용)
-- **NN·ML:** **PyTorch**(NN 사다리) / scikit-learn(베이스라인·전처리) + Colab 무료 GPU
-- **배포:** **GitHub Pages**(정적, 확정) — 데이터는 오프라인 사전계산 후 JSON으로 내보내 브라우저에서 처리. (대안: Hugging Face Spaces)
-
----
-
-## 5. 레포 구조
+## Architecture
 
 ```
-jongno-walkcourse/
-├─ data/            # 원천/가공 데이터 (대용량은 .gitignore + 받는 스크립트)
-│  ├─ raw/          #   수집 원본
-│  └─ processed/    #   POI 테이블(parquet), OD행렬 등 가공 산출물
-├─ scripts/         # 수집·전처리·OD행렬 생성 파이프라인
-├─ models/          # 랭커 학습/추론, 벤치마크
-├─ backend/         # 도달성 엔진 + 추천 (순수 함수, 선택적으로 FastAPI)
-├─ frontend/        # 지도 UI
-├─ notebooks/       # Foursquare 벤치마크 등 탐색·실험
-├─ PROJECT_HANDOFF.md  # 단일 진실 소스(맥락 복원용)
-├─ README.md
-└─ requirements.txt
+(A) Data layer        Jongno POI table (features) + pedestrian OD matrix      [done, 981 nodes]
+(B) Reachability       OD[current][cand] + stay[cand] ≤ remaining budget       [done, deterministic]
+(C) Scoring / ranking  orders the candidates that passed (B)  ← NN/ML lives here
+(D) Web UI             map + controls + priority markers + route + click loop  [done]
 ```
 
-각 폴더의 상세 설명은 폴더 안 `README.md` 참조.
+The hard constraint (time budget) is enforced exactly by (B); within that, (C)'s ranker only decides the order.
 
----
+## Data pipeline
 
-## 6. 빌드 단계 (로드맵)
+981 nodes for Jongno-gu, built from a fully scripted, reproducible pipeline:
 
-| 버전 | 산출물 | 상태 |
-|---|---|---|
-| **v1.0** | 데이터 + OD행렬 + 도달성 + 지도(단일 스텝) → "도보 n분 스팟지도" | 🚧 구조 뼈대 작성 |
-| v1.1 | A→B→C 반복 루프 + 누적예산 + 동선 폴리라인 → 핵심 UX | ⬜ |
-| v1.2 | 사용자 신호 가중 추천(슬라이더) | ⬜ |
-| v1.3 | 성·연령 인기도 조건화 | ⬜ |
-| v1.4 | NN 랭커(L1→L3) + 베이스라인 벤치마크(Recall@k / NDCG) | ⬜ |
+- **POIs** collected via the Kakao Local API + TourAPI tourism anchors (e.g. Jongmyo, Jogyesa).
+- **Popularity** approximated from Naver blog mention counts (quoted `"name" district` search to avoid false matches).
+- **Hotspot score** from winsorized mentions + DBSCAN density, with per-category quotas and stop-word guards against generic-name inflation.
+- **Walking OD matrix** (981 × 981 minutes) built from a local Geofabrik PBF via pyrosm + NetworkX shortest paths, snapping each node to the **giant connected component** (isolated-island nodes would otherwise be unreachable).
+- Data expansion later added bookstores, cultural facilities, and shopping landmarks incrementally (Kyobo Book Centre, museums, markets) without recomputing the whole matrix.
 
-핵심 상호작용은 **v1.1에서 이미 작동**. NN 트랙(아래 9번 사다리)은 **Colab에서 v1.0과 병렬로 일찍 시작 가능** — 웹앱 완성을 기다릴 필요 없음.
+## NN/ML experiments
 
----
+The recommendation task is framed as next-POI ranking and validated on the public Foursquare NYC check-in dataset (227k check-ins, 1,083 users), evaluated leave-one-out on a fixed 403-sample test set with Recall@k and NDCG@k. The structure is then applied to Jongno as a demonstration.
 
-## 7. 데이터 출처 & 라이선스
+| Model | R@1 | R@10 | NDCG@10 |
+|---|---|---|---|
+| Most-popular | 0.003 | 0.025 | 0.014 |
+| Personal history | 0.273 | 0.635 | 0.464 |
+| Random Forest | 0.184 | **0.705** | 0.421 |
+| Logistic Regression | 0.184 | 0.618 | 0.395 |
+| KNN | 0.057 | 0.591 | 0.273 |
+| NN L1 (MLP) | 0.442 | 0.529 | 0.489 |
+| **NN L2 (MLP + history embedding)** | **0.529** | 0.650 | **0.593** |
+| NN L3 (LSTM, sequence) | 0.169 | 0.360 | 0.266 |
 
-| 데이터 | 출처 | 라이선스/조건 |
-|---|---|---|
-| 보행망·POI 기본 | OpenStreetMap | ODbL |
-| POI 보강(선택) | 카카오 로컬 / 네이버 검색 / TourAPI | 무료 키, 각 약관 |
-| 언급량 | 네이버 블로그/검색 API | 무료 키 |
-| 생활인구·인구통계 | 서울 열린데이터광장 / 한국관광 데이터랩 | 공공데이터 |
-| 체크인(벤치마크) | Foursquare 공개 데이터셋 | 연구용 공개 |
+**Findings.** NN L2 wins on precision-oriented metrics (Recall@1, NDCG) — the metrics that matter most for recommendation — while Random Forest has the broadest Recall@10 coverage. Sequence modeling (L3, LSTM) underperformed badly: visit *order* turned out to be unhelpful, even harmful, because the dominant signal is the *set* of places a user frequents, not the order. The champion is **NN L2**, illustrating that a more complex model is not always better. Full ablation in [`notebooks/`](./notebooks).
 
-> 각 API 키는 코드에 하드코딩하지 말고 환경변수/`.env`로 관리. `.env`는 커밋 금지(.gitignore).
+## Tech stack
 
----
+- **Frontend**: React 19, Vite 8, react-leaflet 5, Leaflet 1.9, react-leaflet-cluster 4.1
+- **Map tiles**: VWorld (Korean labels) — standard + satellite
+- **Data / geo**: Python 3.12, pyrosm, NetworkX, pandas, GeoPandas
+- **ML**: PyTorch, scikit-learn (trained in Google Colab)
+- **Deploy**: GitHub Pages (static, pre-computed JSON)
 
-## 8. 실행 방법 (TBD — v1.0 구현 시 채움)
+## Run locally
 
 ```bash
-# 1) 의존성 설치
-pip install -r requirements.txt
+# Frontend
+cd frontend
+npm install
+npm run dev          # http://localhost:5173
 
-# 2) 데이터 수집·전처리 (scripts/ — 미구현)
-#    python scripts/...
-
-# 3) 프론트엔드 실행 (frontend/ — React+Leaflet, 미구현)
-#    npm install && npm run dev
+# Build & deploy (GitHub Pages)
+npm run deploy
 ```
 
-> 현재는 **구조·뼈대 단계**. 데이터 수집 코드는 아직 작성하지 않음.
+The data pipeline scripts live in [`scripts/`](./scripts); each step writes intermediate artifacts consumed by the next. Raw data and API keys are git-ignored.
 
----
+## Data sources & license
 
-## 9. NN 사다리 & 방법론 (이 과제의 핵심)
+POI data from Kakao Local API and TourAPI; mention counts from the Naver Blog Search API; map tiles from VWorld (공간정보 오픈플랫폼); pedestrian network from OpenStreetMap via Geofabrik. NN methodology validated on the Foursquare NYC check-in dataset (Yang et al., 2014).
 
-**NN은 이 프로젝트의 주인공** — 직접 구축·학습하는 것이 핵심 학습 목표.
-Foursquare 공개 체크인으로 *방법을 학습·검증*(정량지표)하고, 그 구조를 종로 POI에 적용(데모)한다.
-각 레벨에서 **모델 정의 → 학습 루프 → loss 관찰 → 평가**를 직접 손으로.
-
-| Level | 모델 | 직접 경험하는 것 |
-|---|---|---|
-| **L1** | MLP 랭커 (`nn.Linear`+ReLU → 점수) | 모델 정의·순전파·손실·옵티마이저·학습 루프 |
-| **L2** | 학습된 임베딩 (`nn.Embedding`) | 표현 학습, UMAP로 임베딩 시각화 |
-| **L3** | 시퀀스 모델 (LSTM / 소형 Transformer) | A→B→C를 *순서*로 인코딩, 다음 장소 예측 |
-| **L4** *(선택)* | GNN (POI 그래프 메시지 패싱) | 그래프 표현학습 |
-| **v2** *(연기)* | 강화학습 정책 (MDP) | 전체 동선 보상 최적화 |
-
-> v1 범위는 **L1~L3 + 베이스라인 비교**. L4(GNN)는 여유 시, RL은 v2로 연기.
-
-**베이스라인 비교(과학적 서사):** 인기순 · KNN · 로지스틱 · 결정트리 · SVM · 앙상블을 비교군으로 두고
-위 NN 사다리와 **Recall@k · NDCG로 대결** → "고전 대비 NN 우위"를 수치로 증명(= NN이 장식이 아니라 *증명된 선택*).
-
-**원칙·한계:**
-- **도달성은 결정론적**(OD행렬 + 체류시간 누적). NN이 시간 예산을 계산하지 않는다 — NN은 **후보 랭킹만**.
-- **정직한 한계:** Foursquare→종로 도메인 갭. 사용자에게 보이는 순위는 해석가능 신호(언급량·군집·연관관광지)가 주로 끈다.
-- **평점 대체:** 무료 평점 소스 부재 → 핫스팟은 "언급량 + DBSCAN 군집 밀집도"로 정의.
-- **보조 기법:** DBSCAN(핫스팟 군집), PCA/UMAP(차원축소·시각화).
-
----
-
-## 10. 현재 상태 / 다음 행동
-
-**완료:** 설계 확정 · 핸드오프 v2 · 레포 스캐폴딩 · git 초기화 + 커밋.
-
-**다음 행동:** GitHub 첫 푸시 → 무료 API 키 발급(카카오·네이버·공공데이터포털) → 종로+버퍼 POI 수집 첫 스크립트 → (병렬) Colab NN L1(MLP 랭커).
-
-상세는 [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md) 13번 섹션 참조.
-
----
-
-## 라이선스
-
-MIT License — 자세한 내용은 [LICENSE](LICENSE) 파일 참고.
+Released under the [MIT License](./LICENSE).
